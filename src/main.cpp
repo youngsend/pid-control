@@ -35,8 +35,8 @@ int main() {
 
   // initialize pid controller.
   double Kp = 0.1;
-  double Ki = 0.0;
-  double Kd = 0.7;
+  double Ki = 0.0003;
+  double Kd = 0.9;
   PID pid(Kp, Ki, Kd);
 
   h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
