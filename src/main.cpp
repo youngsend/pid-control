@@ -34,13 +34,26 @@ int main() {
   uWS::Hub h;
 
   // initialize pid controller.
-  double Kp = 0.1;
-  double Ki = 0.0003;
-  double Kd = 0.9;
-  PID pid(Kp, Ki, Kd);
+  std::vector<double> p = {0.1, 0.0003, 0.9};
+  PID pid(p[0], p[1], p[2]);
+  std::cout << "pid: " << p[0] << ", " << p[1] << ", " << p[2] << "\n";
 
-  h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
-                     uWS::OpCode opCode) {
+  // parameters for twiddle
+  bool tune_pid = true; // if tune pid parameters or not.
+  int count = 0;
+  double total_cte = 0.0;
+  bool best_error_initialized = false;
+  double best_error = std::numeric_limits<double>::max();
+  std::vector<double> dp = {0.01, 0.0001, 0.1};
+  bool move_plus = true;
+  std::cout << "dp: " << dp[0] << ", " << dp[1] << ", " << dp[2] << "\n";
+
+  h.onMessage([&pid, &p, &dp, &tune_pid, &count,
+                  &total_cte, &best_error_initialized,
+                  &best_error, &move_plus](
+      uWS::WebSocket<uWS::SERVER> ws,
+      char *data, size_t length,
+      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -63,6 +76,7 @@ int main() {
            * NOTE: Feel free to play around with the throttle and speed.
            *   Maybe use another PID controller to control the speed!
            */
+
           pid.UpdateError(cte);
           double steer_value = pid.PIDResult();
           if (steer_value > 1) {
@@ -71,15 +85,71 @@ int main() {
             steer_value = -1;
           }
 
-          // DEBUG
-          std::cout << "CTE: " << cte << " Steering Value: " << steer_value
-                    << std::endl;
+          if (tune_pid) {
+            total_cte += cte * cte;
+            count += 1;
+            if (count >= 1500) {
+              // calculate average cte.
+              double average_err = total_cte / count;
+              if (!best_error_initialized) {
+                best_error = average_err;
+                best_error_initialized = true;
+                p[0] += dp[0];
+                p[1] += dp[1];
+                p[2] += dp[2];
+                move_plus = true; // + dp
+              } else {
+                if (average_err < best_error) {
+                  // always make dp bigger when smaller average error got.
+                  // when average error is getting smaller, no need to search -dp.
+                  best_error = average_err;
+                  dp[0] *= 1.1;
+                  dp[1] *= 1.1;
+                  dp[2] *= 1.1;
+                  p[0] += dp[0];
+                  p[1] += dp[1];
+                  p[2] += dp[2];
+                  move_plus = true;
+                } else {
+                  if (move_plus) {
+                    // + dp was tried for this average error
+                    p[0] -= 2 * dp[0];
+                    p[1] -= 2 * dp[1];
+                    p[2] -= 2 * dp[2];
+                    move_plus = false; // - dp
+                  } else {
+                    // - dp was tried for this average error.
+                    // and this try failed, so move back to original parameters.
+                    p[0] += dp[0];
+                    p[1] += dp[1];
+                    p[2] += dp[2];
+                    dp[0] *= 0.9;
+                    dp[1] *= 0.9;
+                    dp[2] *= 0.9;
+                    p[0] += dp[0];
+                    p[1] += dp[1];
+                    p[2] += dp[2];
+                    move_plus = true;
+                  }
+                }
+              }
+              pid.ResetPID(p);
+              count = 0;
+              std::cout << "total squared cte: " << total_cte << "\n";
+              total_cte = 0.0;
+              std::cout << "pid: " << p[0] << ", " << p[1] << ", " << p[2] << "\n";
+              std::cout << "dp: " << dp[0] << ", " << dp[1] << ", " << dp[2] << "\n";
+              if (dp[0] + dp[1] + dp[2] < 0.001) {
+                std::cout << "OK to stop tuning\n";
+              }
+            }
+          }
 
           json msgJson;
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = 0.3;
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+//          std::cout << msg << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }  // end "telemetry" if
       } else {

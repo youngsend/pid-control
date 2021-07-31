@@ -1,17 +1,21 @@
 #ifndef PID_H
 #define PID_H
 
+#include <vector>
+
 class PID {
  public:
   /**
    * Constructor
    */
-  PID(double Kp, double Ki, double Kd) : Kp(Kp), Ki(Ki), Kd(Kd) {};
+  PID(double Kp, double Ki, double Kd) : _Kp(Kp), _Ki(Ki), _Kd(Kd) {};
 
   /**
    * Destructor.
    */
   virtual ~PID();
+
+  void ResetPID(const std::vector<double> &p);
 
   /**
    * Update the PID error variables given cross track error.
@@ -36,9 +40,9 @@ class PID {
   /**
    * PID Coefficients
    */ 
-  double Kp;
-  double Ki;
-  double Kd;
+  double _Kp;
+  double _Ki;
+  double _Kd;
 };
 
 #endif  // PID_H
