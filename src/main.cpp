@@ -34,12 +34,14 @@ int main() {
   uWS::Hub h;
 
   // initialize pid controller.
-  std::vector<double> p = {0.1, 0.0003, 0.9};
+//  std::vector<double> p = {0.1, 0.0003, 0.9};
+//  std::vector<double> p = {0.206356, 0.00136356, 1.96356};
+  std::vector<double> p = {0.19, 0.0003, 1.96};
   PID pid(p[0], p[1], p[2]);
   std::cout << "pid: " << p[0] << ", " << p[1] << ", " << p[2] << "\n";
 
   // parameters for twiddle
-  bool tune_pid = true; // if tune pid parameters or not.
+  bool tune_pid = false; // if tune pid parameters or not.
   int count = 0;
   double total_cte = 0.0;
   bool best_error_initialized = false;
@@ -71,7 +73,7 @@ int main() {
           double speed = std::stod(j[1]["speed"].get<string>());
           double angle = std::stod(j[1]["steering_angle"].get<string>());
           /**
-           * TODO: Calculate steering value here, remember the steering value is
+           * Calculate steering value here, remember the steering value is
            *   [-1, 1].
            * NOTE: Feel free to play around with the throttle and speed.
            *   Maybe use another PID controller to control the speed!
